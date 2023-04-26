@@ -1,0 +1,429 @@
+---
+title: "Navyaka_kandula_HW4"
+author: "Navyaka Kandula"
+date: "2022-11-29"
+output: pdf_document
+---
+
+
+```{r}
+
+library(tidyverse)
+library(caret)
+library(leaps)
+library(boot)
+library(bootstrap)
+library(ISLR2)
+library(rpart)
+
+```
+
+# Question 1
+
+```{r}
+
+Prostate_data <- genridge::prostate
+
+Prostate_data_sample <- sample(c(TRUE,FALSE),nrow(Prostate_data),replace = TRUE,prob=c(0.7,0.3))
+
+Prostate_data_train <- Prostate_data[Prostate_data_sample, ]
+nrow(Prostate_data_train)
+head(Prostate_data_train)
+
+Prostate_data_train_new <- Prostate_data_train$lpsa
+head(Prostate_data_train_new)
+
+
+Prostate_data_test <- Prostate_data[!Prostate_data_sample,]
+nrow(Prostate_data_test)
+head(Prostate_data_test)
+
+Prostate_data_test_new <- Prostate_data_test$lpsa
+head(Prostate_data_test_new)
+
+```
+
+```{r}
+
+## Best-Subset Linear regression Analysis, AIC & BIC Computation 
+## and their plots and Estimates of Error Prediction
+
+
+Prostate_data_model_fit <- regsubsets(lpsa~., data = Prostate_data_train, nvmax = 10, method = "exhaustive")
+Prostate_data_summary <- summary(Prostate_data_model_fit)
+Prostate_data_summary
+
+Prostate_data_model_fit$ress
+
+names(Prostate_data_summary)
+plot(Prostate_data_summary$rss)
+plot(Prostate_data_summary$cp)
+plot(Prostate_data_summary$obj)
+plot(Prostate_data_summary$bic)
+plot(Prostate_data_summary$adjr2)
+
+
+Prostate_data_select <- Prostate_data_summary$outmat
+
+error_estimate_train <- 0
+error_estimate_test <- 0
+
+aic_estimate <- 0
+bic_estimate <- 0
+
+for(i in 1:9){
+  data_temp <- which(Prostate_data_select[i,]=="*")
+  
+  data_train <- Prostate_data_train[,c(9,data_temp)]
+  data_test <- Prostate_data_test[,c(9,data_temp)]
+  
+  data_model_fit <- lm(lpsa~.,data=data_train)
+  
+  aic <- AIC(data_model_fit)
+  bic <- BIC(data_model_fit)
+  
+  predict_train <- predict(data_model_fit,newdata=data_train)
+  predict_test <- predict(data_model_fit,newdata=data_test)
+  
+  error_train <- sum((predict_train-Prostate_data_train_new)^2)/length(Prostate_data_train_new)
+  error_test <- sum((predict_test-Prostate_data_test_new)^2)/length(Prostate_data_test_new)
+  
+  error_estimate_train <- c(error_estimate_train,error_train)
+  error_estimate_test <- c(error_estimate_test,error_test)
+  
+  aic_estimate <- c(aic_estimate,aic)
+  bic_estimate <- c(bic_estimate,bic)
+  
+}
+
+error_estimate_train
+error_estimate_test
+aic_estimate
+bic_estimate
+
+upper_estimate <- max(aic_estimate,bic_estimate)
+upper_estimate
+
+lower_estimate <- min(aic_estimate,bic_estimate)
+lower_estimate
+
+plot(aic_estimate, type = "o",lty=2,col= "black",ylim = c(130,upper_estimate+2), xlab = "k",ylab="Value", main="Plot of AIC & BIC")
+lines(bic_estimate,type="o", lty=1,col= "red")
+legend("topright",c("AIC", "BIC"),lty=c(2,1),col=c("black","red"))
+
+plot(error_estimate_train,type="o",lty=2,col="black",ylim = c(0,1),xlab = "k",ylab="Error",main="Plot of Errors")
+lines(error_estimate_test,type="o",lty=1,col="red")
+legend("topright",c("training.error", "test.error"),lty=c(2,1),col=c("black","red"))
+
+```
+
+```{r}
+
+## Five and Tenfold Cross Validation Computation and Estimates of Error Prediction
+
+set.seed(0)
+
+cross_validation_k5.estimate <- 0
+cross_validation_k10.estimate <- 0
+
+for(i in 1:9){
+  data_temp <- which(Prostate_data_select[i,]=="*")
+  
+  data_method <- Prostate_data[,c(9,data_temp)]
+  data_model_fit <- glm(lpsa~.,data =data_method)
+  
+  cross_validation_k5 <- cv.glm(data_method, data_model_fit,K=5)$delta[2]
+  cross_validation_k10 <- cv.glm(data_method, data_model_fit,K=10)$delta[2]
+  
+  cross_validation_k5.estimate <- c(cross_validation_k5.estimate,cross_validation_k5)
+  cross_validation_k10.estimate <- c(cross_validation_k10.estimate,cross_validation_k10)
+}
+
+cross_validation_k5.estimate
+cross_validation_k10.estimate
+
+upper_estimate <- max(cross_validation_k5.estimate,cross_validation_k10.estimate)
+upper_estimate
+
+lower_estimate <- min(cross_validation_k5.estimate,cross_validation_k10.estimate)
+lower_estimate
+
+
+plot(cross_validation_k5.estimate,type="o",lty=2,col = "black",ylim = c(0,1),xlab = "k",ylab="Error",main=" Plot of Errors")
+lines(cross_validation_k10.estimate,lty=1,type="o",col="red")
+legend("topright",c("error_k5", "error_k10"),lty=c(2,1),col=c("black","red"))
+
+```
+
+
+```{r}
+
+## bootstrap.632 Computation and Estimates of Error Prediction
+
+Prostate_x <- Prostate_data[,1:8]
+Prostate_y <- Prostate_data[,9]
+
+model_fit <- function(Prostate_x,Prostate_y){lsfit(Prostate_x,Prostate_y)}
+model_predict <- function(fit,Prostate_x){cbind(1,Prostate_x)%*%fit$coef}
+data_error <- function(Prostate_y,Prostate_yhat){(Prostate_y-Prostate_yhat)^2}
+
+data_bootsrap632_error <- 0
+
+for(i in 1:7){
+  data_temp <- which(Prostate_data_select[i,]=="*")
+
+  data_predict <- bootpred(Prostate_x[,,data_temp],Prostate_y,nboot = 50,model_fit,model_predict,err.meas=data_error)
+  data_bootsrap632_error <- c(data_bootsrap632_error,data_predict[[3]])
+}
+
+data_bootsrap632_error
+
+plot(data_bootsrap632_error,type="o",lty=5,col="red",main="Plot of Errors",xlab = "k",ylab="Error")
+legend("bottomright",c(".632"),lty =1,col=c("red"))
+
+## All models Plots
+
+plot(error_estimate_train,type="o",lty=2,col = "orange",ylim = c(0.4,0.7),xlab = "k",ylab="Error",main="Plot of All Models")
+lines(error_estimate_test,type="o",lty=1,col="black")
+lines(cross_validation_k5.estimate,type="o",lty=3,col = "blue")
+lines(cross_validation_k10.estimate,type="o",lty=4,col="green")
+lines(data_bootsrap632_error,type="o",lty=5,col="red")
+legend("topright",c("k=5", "k=10","linearmodel_train", "linearmodel_test","bootstrap.632"),lty=c(5,1),col=c("blue","green","orange","black","red"))
+
+
+```
+
+# Question 2
+
+```{r}
+
+library(ISLR2)
+set.seed(0)
+
+data <- ISLR2::Bikeshare
+head(data)
+
+# splitting the whole dataset into training and testing data
+
+data_sample <- sample(c(TRUE,FALSE),nrow(data),replace = TRUE,prob=c(0.7,0.3))
+
+data_train <- data[data_sample,]
+nrow(data_train)
+head(data_train)
+
+data_test <- data[!data_sample,]
+nrow(data_test)
+head(data_test)
+
+data_model_fit <- rpart(bikers~.,data=data_train)
+summary(data_model_fit)
+
+plot(data_model_fit,uniform = TRUE,main="Plot of data fit to Regression Tree Model")
+text(data_model_fit,use.n=TRUE,cex=.8)
+
+## The obtained tree size is with 25 nodes
+## Performance of Tree is better as the data is well fit to the model.
+
+data_predict <- predict(data_model_fit,data_test, method="anova")
+data_predict <- as.data.frame(data_predict)
+head(data_predict)
+
+```
+
+```{r}
+data_predict_unique = unique.data.frame(data_predict)
+head(data_predict_unique)
+data_predict_unique
+
+## The lowest observation is 28 which indicates that good 
+## times to do repairs and tune-ups are these days of each month.
+
+## Number of test samples assigned to each terminal region are as below
+
+child_tree1 <- subset(data_predict,data_predict>25)
+child_tree1 <- subset(child_tree1,data_predict<30)
+nrow(child_tree1)
+
+child_tree2 <- subset(data_predict,data_predict>170)
+child_tree2 <- subset(child_tree2,data_predict<173)
+nrow(child_tree2)
+
+child_tree3 <- subset(data_predict,data_predict>100)
+child_tree3 <- subset(child_tree3,data_predict<114)
+nrow(child_tree3)
+
+child_tree4 <- subset(data_predict,data_predict>200)
+child_tree4 <- subset(child_tree4,data_predict<215)
+nrow(child_tree4)
+
+child_tree5 <- subset(data_predict,data_predict>295)
+child_tree5 <- subset(child_tree5,data_predict<298)
+nrow(child_tree5)
+
+child_tree6 <- subset(data_predict,data_predict>400)
+child_tree6 <- subset(child_tree6,data_predict<450)
+nrow(child_tree6)
+
+child_tree7 <- subset(data_predict,data_predict>350)
+child_tree7 <- subset(child_tree7,data_predict<400)
+nrow(child_tree7)
+
+child_tree8 <- subset(data_predict,data_predict>540)
+child_tree8 <- subset(child_tree8,data_predict<560)
+nrow(child_tree8)
+
+## Here, total no.of observations at each terminal are not equal
+## to the actual observations at each node. Therefore, the model performance is very low.
+
+
+data_predict_unique <- cbind(data_predict,data_test$season,data_test$mnth,data_test$day,data_test$hr,data_test$holiday,data_test$weekday,data_test$workingday,data_test$weathersit,data_test$bikers)
+
+child_tree1 <- subset(data_predict_unique,data_predict>25)
+child_tree1 <- subset(child_tree1,data_predict<30)
+
+hist(child_tree1$`data_test$weekday`)
+hist(child_tree1$`data_test$workingday`)
+hist(child_tree1$`data_test$holiday`)
+hist(as.numeric(child_tree1$`data_test$hr`))
+hist(child_tree1$`data_test$season`)
+hist(child_tree1$`data_test$day`)
+
+
+## Accuracy of model
+
+bikers_data_predict <- predict(data_model_fit,data_test, method="anova")
+head(bikers_data_predict)
+
+bikers_data_predict[5] == data_test$bikers[5]
+
+accuracy <- 0
+
+for ( i in 1:length(bikers_data_predict)){
+  
+  if (bikers_data_predict[i] == data_test$bikers[i]){
+    
+    accuracy = accuracy+1
+  }
+}
+
+data_model_accuracy <- accuracy/length(bikers_data_predict)
+data_model_accuracy*100
+
+## The accuracy of the model is '0' indicating the worst model 
+## performance. However, based on the model below are the derivations.
+
+## Rental bikes count is less on weekends like saturday and sunday that 
+## too during 8 am to 8 pm of all days which can be low-yield settings. 
+## Also, to minimize disruption of usage, the season, month,days 
+## and hours with low usage can be derived from the regression tree plot 
+## and this can be used to stop sharing rental bikes during these days and timing. 
+ 
+## Less(Almost half) on non-working day compared to working day
+## Negligible on Holidays
+## Highest in 1st season, followed by 2nd and 4th seasons(which are almost equal) 
+## and then lowest being in 4th season
+## Decreasing when reaching end of the month
+## All this above details can be used to minimize cost, 
+## identify good timing and derive low-yield counts.
+
+```
+
+# Question 3
+
+```{r}
+
+wage_data <- as.data.frame(ISLR2::Wage)
+head(wage_data)
+nrow(wage_data)
+
+maximum_data <- max(wage_data$wage)
+maximum_data
+minimum_data <- min(wage_data$wage)
+minimum_data
+
+names(wage_data)
+head(wage_data$year)
+head(wage_data$age)
+head(wage_data$maritl)
+head(wage_data$race)
+head(wage_data$education)
+head(wage_data$region)
+head(wage_data$jobclass)
+head(wage_data$health)
+head(wage_data$health_ins)
+head(wage_data$logwage)
+head(wage_data$wage)
+
+hist(wage_data$wage) ## wage distribution is normal
+
+min(wage_data$wage)
+mean(wage_data$wage)
+max(wage_data$wage)
+
+## Based on minimum, average and highest wage values, categorization can be 
+## low_wage < 100, average_wage between 100 and 200, high_wage > 200
+
+
+for(i in 1:nrow(wage_data)){
+  if(wage_data$wage[i]<100){
+    wage_data$wage[i]="low"
+  }
+  else{
+    if(wage_data$wage[i]<200){
+      wage_data$wage[i]="average"
+    }
+    else{
+      wage_data$wage[i]="high"
+    }
+  }
+}
+
+data_sample <- sample(c(TRUE,FALSE),nrow(wage_data),replace = TRUE,prob=c(0.7,0.3))
+train_data= wage_data[data_sample,]
+nrow(train_data)
+head(train_data)
+
+test_data <- wage_data[!data_sample,]
+nrow(test_data)
+head(test_data)
+
+head(test_data$wage)
+train_data <- train_data[,,-c(10)]
+test_data <- test_data[,,-c(10)]
+
+wage_data_model_fit <- rpart(wage~.,data=train_data)
+summary(wage_data_model_fit)
+
+plot(wage_data_model_fit,uniform=TRUE ,main = "Plot of data fit to Regression Tree Model")
+text(wage_data_model_fit, use.n = TRUE, cex = .8)
+
+predict_data_wage <- predict(wage_data_model_fit,test_data,type = 'class')
+data_test_predict <- cbind(predict_data_wage,test_data$wage)
+
+## here in the regression tree plot, there are only average 
+## and high classes but no low wage class.Therefore test samples assigned are only two classes
+
+## Accuracy of model
+
+head(predict_data_wage)
+predict_data_wage[2] == test_data$wage[2]
+
+accuracy <- 0
+
+for ( i in 1:length(predict_data_wage)){
+  
+  if (predict_data_wage[i]==test_data$wage[i]){
+    
+    accuracy=accuracy+1
+  }
+}
+
+data_wage_model_accuracy <- accuracy/length(predict_data_wage)
+data_wage_model_accuracy*100
+
+## Accuracy of the model is 99.65% which means the data 
+## classification for low, average and high wage earners is perfect. 
+## Wage>200 are called high wage earners. this means the performance of tree is high.
+
+```
+

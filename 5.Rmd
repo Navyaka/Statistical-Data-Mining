@@ -1,0 +1,333 @@
+---
+title: "Navyaka_Kandula_Final_HW"
+author: "Navyaka Kandula"
+date: "2022-12-17"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+
+library(ISLR2) 
+library(tidyverse)
+library(caret)
+library(e1071)
+library(kernlab)
+library(neuralnet)
+library(nnet)
+library(randomForest)
+
+```
+
+## 3
+
+```{r}
+
+dataframe = read.table("spam.txt")
+
+data = sample(1:nrow(dataframe), nrow(dataframe)*0.80)
+data_train = dataframe[data, ]
+data_test = dataframe[-data, ]
+
+data_train$V58 <- as.character(data_train$V58)
+data_train$V58 <- as.factor(data_train$V58)
+
+data_oob_error <- c() 
+data_test_error <- c() 
+
+for (i in 1:10){
+    data_model <- randomForest(V58~., data = data_train, mtry = i, ntree = 2500)
+    data_model_confusion <- data_model$confusion[,-ncol(data_model$confusion)]
+    oob <- 1 - (sum(diag(data_model_confusion))/sum(data_model_confusion))
+    data_oob_error <- append(data_oob_error, round(oob*100, 2)) 
+    data_test_prediction <- predict(data_model, data_test) 
+    test_error <- mean(data_test_prediction!= data_test$V58)
+    data_test_error <- append(data_test_error, test_error)}
+
+output <- data.frame(m = c(1:10), data_oob_error = data_oob_error, test_error = round(test_error,4)*100)
+
+ggplot(output, aes(x= m)) + geom_line(aes(y = data_oob_error), color = 'green') + geom_line(aes(y = test_error), color = 'red') + ggtitle("OOB Error And Test Error")
+
+ggplot(output, aes(x= m)) + geom_line(aes(y = data_oob_error), color = 'green') + geom_line(aes(y = data_test_error), color = 'red') + ggtitle("OOB Error And Final Test Error")
+
+```
+
+## 4.a
+
+```{r}
+
+##  training set containing a random sample of 800 observations, 
+## and a test set containing the remaining observations. 
+
+attach(OJ)
+
+dataset <- OJ 
+head(OJ)
+
+data <- sample(nrow(dataset), 800, replace = FALSE)
+
+data_train <- dataset[data, ]
+data_test <- dataset[-data, ]
+
+```
+
+## 4.b
+
+```{r}
+
+## support vector classifier to the training data using cost = 0.01, 
+## with Purchase as the response and the other variables as predictors
+
+data_model <- svm(Purchase ~., data = data_train, kernel = 'linear', cost = 0.01)
+summary(data_model)
+
+## There are total 430 support vectors with 2 classes where 215 are in class-1 and  215 are in class-2.
+## There are also 2 Levels namely CH & MM
+
+```
+## 4.c
+
+```{r}
+
+##  training and test error rates
+
+data_train_prediction <- predict(data_model, data_train) 
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+
+data_test_prediction <- predict(data_model, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## [1] 0.15625
+## [1] 0.2222222
+
+```
+## 4.d
+
+```{r}
+
+##  tune() function to select an optimal cost with  values of range 0.01 to 10. 
+
+data_model_control <- trainControl(method = 'cv', number = 10)
+
+data_model_tune <- train(Purchase ~., data = data_train,method = 'svmLinear2',trContol = data_model_control, 
+                    preProcess = c('center', 'scale'),tuneGrid = expand.grid(cost = seq(0.01, 10, length.out = 20)))
+
+summary(data_model_tune)
+
+## 311 support vectors with 156 in class-1 and 155 in class-2 with same levels as before
+
+```
+## 4.e
+
+```{r}
+
+## training and test error rates using this new value for cost
+
+data_train_prediction <- predict(data_model_tune, data_train) 
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+data_test_prediction <- predict(data_model_tune, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## Both train and test errors have decreased
+## [1] 0.1475
+## [1] 0.2074074
+
+```
+## 4.f 
+
+```{r}
+
+## parts (b) through (e) using a support vector machine with a radial kernel. 
+## default value for gamma.
+
+data_model2 <- svm(Purchase ~., data = data_train, kernel = 'radial', cost = 0.01)
+summary(data_model2)
+
+## 618 support vectors with 311 in class-1 and 307 in class-2 with levels CH & MM
+
+```
+```{r}
+
+data_train_prediction <- predict(data_model2, data_train) 
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+data_test_prediction <- predict(data_model2, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## both train and test errors have increased to almost double
+
+data_model_control <- trainControl(method = 'cv', number = 10)
+data_model_tune <- train(Purchase ~., data = data_train,method = 'svmRadial',trContol = data_model_control, 
+                    preProcess = c('center', 'scale'),tuneGrid = expand.grid(C = seq(0.01, 10, length.out = 20),sigma = 0.05691))
+
+summary(data_model_tune)
+
+data_train_prediction <- predict(data_model_tune, data_train) 
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+data_test_prediction <- predict(data_model_tune, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## Now, After tuning test and train errors have decreased than before using
+## a support vector machine with a radial kernel with default gamma value
+
+## [1] 0.38375
+## [1] 0.4074074
+## Length  Class   Mode 
+##      1   ksvm     S4 
+## [1] 0.14625
+## [1] 0.1740741
+
+```
+## 4.g 
+
+```{r}
+
+## parts (b) through (e) using a support vector machine with a polynomial kernel and degree = 2.
+
+data_model3 <- svm(Purchase ~., data = data_train, kernel = 'polynomial', degree = 2,  cost = 0.01)
+summary(data_model3)
+
+## 619 support vectors with 312 in class-1 and 307 in class-2 
+## Levels of CH & MM
+
+data_train_prediction <- predict(data_model3, data_train) 
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+data_test_prediction <- predict(data_model3, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## train and test errors have increase to double just like with use of radial kernel
+
+
+data_model_control <- trainControl(method = 'cv', number = 10)
+data_model_tune <- train(Purchase ~., data = data_train,method = 'svmPoly', trContol = data_model_control, 
+                    preProcess = c('center', 'scale'), tuneGrid = expand.grid(degree = 2, C = seq(0.01, 10, length.out= 20), scale = TRUE))
+
+summary(data_model_tune)
+
+data_train_prediction <- predict(data_model_tune, data_train) 
+
+data_train_error <- mean(data_train_prediction != data_train$Purchase)
+data_train_error
+
+data_test_prediction <- predict(data_model_tune, data_test)
+data_test_error <- mean(data_test_prediction != data_test$Purchase)
+data_test_error
+
+## train error has decrease and is same as with the use of radial kernel
+## test error has decreased from with out using kernel but increased from
+## with the use of radial kernel
+
+## [1] 0.37625
+## [1] 0.4074074
+## Length  Class   Mode 
+##     1   ksvm     S4 
+## [1] 0.14625
+## [1] 0.1888889
+
+```
+## 4.h 
+
+```{r}
+
+## Data classification of support vectors and its classes have been changing every time.
+## Below are my conclusions based on the results mentioned in above comments.
+
+## Errors of tuned models are lesser which means tuned models are better
+## Also, in tuned models- train data errors are same but test data error is less
+## for polynomial kernel
+
+## Hence, model  using a support vector machine with a polynomial kernel is better
+## and gave best results on this data to me.
+
+```
+
+## 7
+
+```{r}
+
+attach(Default) 
+dataset_default <- Default
+summary(dataset_default)
+head(dataset_default)
+
+```
+
+```{r}
+
+ggplot(dataset_default, aes(x = default)) + geom_bar()
+
+```
+
+```{r}
+
+dataset_default$default <- as.numeric(dataset_default$default)
+dataset_default$student <- as.numeric(dataset_default$student)
+
+str(dataset_default)
+
+```
+
+```{r}
+set.seed(000)
+
+default_data <- sample(nrow(dataset_default), size = 2/3*nrow(dataset_default), replace = FALSE)
+default_data_train <- dataset_default[default_data, ]
+default_data_test <- dataset_default[-default_data, ]
+
+default_data_model <- neuralnet(default ~., data = default_data_train,hidden = 10, linear.output = F,lifesign = 'full', rep=1)
+
+```
+
+```{r}
+
+plot(default_data_model,col.hidden = 'red', col.hidden.synapse = 'red',show.weights = F,information = T, fill='white')
+
+```
+
+```{r}
+
+default_data_train_prediction <- round(predict(default_data_model, default_data_train))
+default_data_train_error <- mean(default_data_train_prediction != default_data_train$default)
+default_data_train_error
+
+default_data_test_prediction <- round(predict(default_data_model, default_data_test))
+default_data_test_error <- mean(default_data_test_prediction != default_data_test$default)
+default_data_test_error
+
+## logistic regression
+
+default_data_train$default <- as.factor(default_data_train$default)
+default_data_logistic_regression <- glm(default ~., data = default_data_train, family = binomial)
+summary(default_data_logistic_regression)
+
+default_data_train_prediction <- predict(default_data_logistic_regression, default_data_train, type = 'response')
+default_data_train_error <- mean(default_data_train_prediction != default_data_train$default)
+default_data_train_error
+
+default_data_test_prediction <- predict(default_data_logistic_regression, default_data_test)
+default_data_test_error <- mean(default_data_test_prediction != default_data_test$default)
+default_data_test_error
+
+## Both training and testing errors with logistic regression is 100%.
+## The classification performance of  with logistic regression is zero.
+## Testing and Training errors of my model are 3.1% and 3.4% respectively.
+## Errors are very low which means my model performance is high.
+
+
+```
+

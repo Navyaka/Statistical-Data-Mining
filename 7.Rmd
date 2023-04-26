@@ -1,0 +1,177 @@
+---
+title: "Homework 3"
+author: "Navyaka Kandula"
+date: '2022-04-01'
+output:
+  word_document: default
+  html_document: default
+---
+
+
+```{r}
+
+# 4.a.
+
+# The given information of clusters {1,2,3} and {4,5} both fuse at different certain points in single linkage and complete linkage dendrograms is not sufficient to predict the relative heights of each fusion of both linkages because, if the distances of observations are as below:
+# Example 1: (1,4) = 2, (1,5) = 3, (2,4) = 1, (2,5) = 3, (3,4) = 4, (3,5) = 1
+# 
+# The dissimilarity of single linkage matrix: 1 (Therefore, the height is 1)
+# The dissimilarity of complete linkage matrix: 4 (Therefore, the height is 4)
+# 
+# Example 2: (1,4) = 2, (1,5) = 2, (2,4) = 2, (2,5) = 2, (3,4) = 2, (3,5) = 2
+# 
+# The dissimilarity of single linkage matrix: 2 (Therefore, the height is 2)
+# The dissimilarity of complete linkage matrix: 2 (Therefore, the height is 2)
+# 
+# As the heights are different for the same given data depending on varying distances, the prediction cannot be done successfully.
+# 
+# # 4.b.
+# 
+# Given, the clusters {5} and {6} fuse at a certain point on the single and complete linkage dendrograms. 
+# 
+# Example 1: If the distance of 5 & 6 observations is 2, 
+# The dissimilarity of single linkage matrix: 2 (Therefore, the height is 2)
+# The dissimilarity of complete linkage matrix: 2 (Therefore, the height is 2)
+# 
+# Example 2: If the distance of 5 & 6 observations is 3, 
+# The dissimilarity of single linkage matrix: 3 (Therefore, the height is 3)
+# The dissimilarity of complete linkage matrix: 3 (Therefore, the height is 3)
+# 
+# As the given information is only for 2 observations, based on the above examples both the linkages will fuse at same heights.
+
+
+```
+
+```{r}
+
+
+# 10.a
+
+set.seed(2)
+data <- matrix(rnorm(20 * 3 * 50, mean = 5, sd = 0.005), ncol = 50)
+data[1:20, 2] <- 1
+data[21:40, 1] <- 2
+data[21:40, 2] <- 2
+data[41:60, 1] <- 1
+simulated_data <- c(rep(1, 20), rep(2, 20), rep(3, 20))
+
+
+# 10.b
+
+principal_components <- prcomp(data)
+
+X11()
+plot(principal_components$x[, 1:2], col = 1:3, xlab = "Principal Component Vector 1", ylab = "Principal Component Vector 2", pch = 11)
+
+# 10.c
+
+kmeans_clustering <- kmeans(data, 3, nstart = 20) # K=3
+table(simulated_data, kmeans_clustering$cluster)
+
+# The obtained K-means clustering is optimal.
+
+# 10.d
+
+kmeans_clustering_2 <- kmeans(data, 2, nstart = 20) # K=2
+table(simulated_data, kmeans_clustering_2$cluster)
+
+# The first two cluster observations are combined to first cluster and all the observations of 3 clusters are now observed in only 2 clusters.
+
+# 10.e
+
+kmeans_clustering_4 <- kmeans(data, 4, nstart = 20) # K=4
+table(simulated_data, kmeans_clustering_4$cluster)
+
+# The first cluster observations are split to first 2 clusters and all the observations of 3 clusters are expanded to 4 clusters.
+
+# 10.f
+
+kmeans_clustering_raw <- kmeans(principal_components$x[, 1:2], 3, nstart = 20) # K=3
+table(simulated_data, kmeans_clustering_raw$cluster)
+
+# The obtained K-means clustering is optimal even with principal components as columns.
+
+# 10.g
+
+kmeans_clustering_scaled <- kmeans(scale(data), 3, nstart = 20)
+table(simulated_data, kmeans_clustering_scaled$cluster)
+
+# The distance between observations have been changed after scaling the data. But the output matrix of scaled data is not optimal compared to unscaled data.
+
+
+```
+
+
+```{r}
+
+
+# 13.a 
+
+
+data <- read.csv("Ch12Ex13.csv", header = F)
+  
+    
+# 13.b
+    
+# rows are genes, columns are patients. Finding similar patients and clustering them to 2 groups
+    
+distance <- dist(1-cor(data))
+
+#methods <- c('centroid', 'average', 'single', 'complete') 
+
+
+hierarchical_clustering <- hclust(distance, method = "centroid")
+
+X11()
+
+plot(hierarchical_clustering, col = "steel blue", col.main = "black", col.lab = "orange", col.axis = "blue", lwd =3, lty = 1, sub = "", hang = -1, main = paste0('Cluster Dendrogram using centroid linkage'))
+
+hierarchical_clustering <- hclust(distance, method = "average")
+
+X11()
+
+plot(hierarchical_clustering, col = "steel blue", col.main = "black", col.lab = "orange", col.axis = "blue", lwd =3, lty = 1, sub = "", hang = -1, main = paste0('Cluster Dendrogram using average linkage'))
+
+X11()
+
+hierarchical_clustering <- hclust(distance, method = "single")
+
+plot(hierarchical_clustering, col = "steel blue", col.main = "black", col.lab = "orange", col.axis = "blue", lwd =3, lty = 1, sub = "", hang = -1, main = paste0('Cluster Dendrogram using single linkage'))
+
+hierarchical_clustering <- hclust(distance, method = "complete")
+
+X11()
+
+plot(hierarchical_clustering, col = "steel blue", col.main = "black", col.lab = "orange", col.axis = "blue", lwd =3, lty = 1, sub = "", hang = -1, main = paste0('Cluster Dendrogram using complete linkage'))
+
+
+# The patients are divided into 2 groups based on genes and the clustering did not depend on the linkage methods as all the above methods divided patients to 2 clusters.
+
+patient_groups <- cutree(hierarchical_clustering, k = 2)
+patient_groups
+
+# cluster-1 : patients 1 to 20
+# cluster-2 : patients 20 to 40
+
+
+# 13.c
+
+# The most different genes can be found out using Principal Component Analysis(PCA).
+#In this the weight of the genes is found by analyzing absolute values. The same is applied below
+
+principal_components <- prcomp(t(data))
+head(principal_components$rotation)
+
+load_genes <- apply(principal_components$rotation, 1, sum)
+most_diff_genes <- order(abs(load_genes), decreasing = T)
+most_diff_genes[1:20]
+
+# 865  68 911 428 624  11 524 803 980 822 529 765 801 771 570 654 451 237 373 959 - these are 20 most different genes among 2 groups.
+
+```
+
+
+
+```{r}
+
+```

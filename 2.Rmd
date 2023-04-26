@@ -1,0 +1,388 @@
+---
+title: "Homework2_Navyaka_Kandula"
+author: "Navyaka Kandula"
+date: "2022-10-01"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+*Question 1*
+
+```{r}
+
+library('ISLR2')
+library(glmnet)
+
+college_dataset <- ISLR2::College
+head(college_dataset)
+str(college_dataset)
+summary(college_dataset)
+colSums(is.na(college_dataset)) #NUll Values = 0
+
+```
+
+
+############### 1.a ###############
+
+```{r}
+
+## Changing True/False to Binary
+
+college_dataset$Private <- ifelse(college_dataset$Private == 'Yes',1,0) 
+
+```
+
+```{r}
+
+## Splitting the data set into a training set 
+
+index <- floor(nrow(college_dataset) * 0.70)
+train <- college_dataset[1 : index,]
+print(nrow(train))
+
+## Splitting the data set into a test set.
+
+test <- college_dataset[(index+1) : nrow(college_dataset),]
+print(nrow(test))
+
+```
+
+```{r}
+
+## Fitting a linear model using least squares on the training set
+
+linear_model_ls <- lm(Apps ~ ., data = train)
+linear_model_predict <- predict(linear_model_ls, test)
+
+## Reporting the test error obtained
+
+test_error_ls <- sum((linear_model_predict - test$Apps)^2)/nrow(test)
+test_error_ls
+
+```
+
+
+############### 1.b ###############
+
+```{r}
+
+x_train <- train[-2]
+y_train <- train[2]
+x_test <- test[-2]
+y_test <- test[2]
+
+```
+
+
+```{r}
+
+## Changing trains and tests to matrices
+
+x_train <- as.matrix(x_train)
+y_train <- as.matrix(y_train)
+x_test <- as.matrix(x_test)
+y_test <- as.matrix(y_test)
+
+```
+
+
+```{r}
+
+## Fitting a ridge regression model on the training set
+
+ridge_regression_model <- glmnet(x_train, y_train, alpha = 0)
+
+```
+
+```{r}
+
+## Choosing lambda by cross validation
+
+cross_validation_model <- cv.glmnet(x_train, y_train, alpha = 0)
+
+plot(cross_validation_model)
+names(cross_validation_model)
+
+## Getting best lambda by finding minimum lambda for best fit
+
+lambda_best <- cross_validation_model$lambda.min
+lambda_best
+
+```
+
+
+```{r}
+
+## Predicting best fit
+
+best_fit_ridge <- predict(ridge_regression_model, s = lambda_best, x_test)
+best_fit_ridge
+
+## Reporting best error
+
+test_error_ridge <- sum((best_fit_ridge - y_test)^2)/nrow(x_test)
+test_error_ridge
+
+```
+
+############### 1.c ###############
+
+```{r}
+
+## Fitting a lasso model on the training set
+
+lasso_regression_model <- glmnet(x_train, y_train, alpha = 1)
+
+```
+
+```{r}
+
+## Finding best lambda for lasso regression by cross validation
+
+Lasso_cross_validation <- cv.glmnet(x_train, y_train, alpha = 1)
+
+best_fit_lasso <- Lasso_cross_validation$lambda.min
+best_fit_lasso
+
+plot(Lasso_cross_validation)
+
+```
+
+
+```{r}
+
+## Predicting test_y with best lambda for lasso model
+
+predict_lasso <- predict(lasso_regression_model, s = best_fit_lasso, x_test)
+
+## Reporting test error
+
+test_error_lasso <- sum((predict_lasso - y_test)^ 2)/nrow(x_test)
+test_error_lasso
+
+## Finding the number of non-zero coefficient estimates
+
+coefficient_estimates <- coef(lasso_regression_model, s = best_fit_lasso)
+coefficient_estimates
+
+```
+
+############### 1.d ###############
+
+```{r}
+ 
+## | Model        | Test Errors      |
+## |--------------|------------------|
+## | Linear Model | 1413322 |
+## | Ridge Model  | 1391902 |
+## | Lasso Model  | 1397876 |
+
+## Ridge Model Prediction is better than other models. 
+## The Difference of Test Errors between Ridge and Lasso is less.
+## But the difference of Test Errors of Ridge/Lasso and Linear Model is More.
+## Finding how the ridge model accurately finds App output by the R squared value.
+## Finding R squared value where R-squared value = residual sum of squares / total sum of squares
+
+```
+
+```{r}
+
+residual_sum_of_squares <- sum((best_fit_ridge - y_test) ^ 2)
+total_sum_of_squares <- sum((y_test - mean(y_test))^2)
+
+R_squared_value <- 1 - (residual_sum_of_squares / total_sum_of_squares)
+R_squared_value
+
+R_squared_value_percentage <- R_squared_value*100
+R_squared_value_percentage
+
+## Ridge Model has best fit of 92% of the variability observed is well explained
+
+```
+
+*Question 2*
+
+############### 2.0 ###############
+
+```{r}
+
+training <- read.delim("~/ticdata2000.txt", header=FALSE)
+testing <- read.delim("~/ticeval2000.txt", header=FALSE)
+target <- read.delim("~/tictgts2000.txt", header = FALSE)
+
+dim(training)
+dim(testing)
+dim(target)
+
+```
+
+
+```{r}
+
+## Computing OLS estimates
+
+OLS_estimates <- lm(V86 ~ ., data <- training)
+linearmodel <- predict(OLS_estimates, testing)
+
+OLS_estimates
+
+```
+
+```{r}
+
+## Forward & Backward Selections
+
+intercept <- lm(V86 ~ 1, data <- training)
+
+linear_model <- lm(V86 ~ ., data <- training)
+
+forward <- step(intercept, direction = 'forward',scope = formula(linear_model), trace = 0)
+
+backward <- step(intercept, direction = 'backward', scope = formula(linear_model), trace = 0)
+
+forward_prediction <- predict(forward, testing)
+backward_prediction <- predict(backward, testing)
+
+```
+
+```{r}
+
+## Forward & Backward Errors
+
+forward_error <- mean(sum(forward_prediction - target)^2)
+forward_error
+
+backward_error <- mean(sum(backward_prediction - target)^2)
+backward_error
+
+```
+
+
+```{r}
+
+training_df <- data.matrix(training)
+testing_df <- data.matrix(testing)
+target_df <- data.matrix(target)
+
+mean_correction_value <- cv.glmnet(testing_df, target_df, alpha = 0)
+
+bestLambda <- mean_correction_value$lambda.min 
+bestLambda
+
+plot(mean_correction_value)
+
+## Ridge Regression Model
+
+bestRidge = glmnet(testing_df,target_df,alpha = 0 ,lambda = bestLambda)
+coef(bestRidge)
+
+predictRidge = predict(bestRidge,s=bestLambda,newx = testing_df)
+
+errorRidge = mean(sqrt((predictRidge- target_df)^2)) ## Ridge error
+errorRidge
+
+errorRidge_percentage <- errorRidge*100
+errorRidge_percentage
+
+## Lasso Regression Model
+
+bestLasso = glmnet(testing_df,target_df,alpha = 1 ,lambda = bestLambda)
+coef(bestLasso)
+
+predictLasso = predict(bestLasso,s=bestLambda,newx = testing_df)
+
+errorLasso = mean(sqrt((predictLasso- target_df)^2)) ## Lasso error
+errorLasso
+
+errorLasso_percentage <- errorLasso*100
+errorLasso_percentage
+
+```
+
+*Question 3*
+
+############### 3.0 ###############
+
+```{r}
+
+train_zip <- read.table(gzfile("~/zip.train.gz"))
+test_zip <-  read.table(gzfile("~/zip.test.gz"))
+
+dim(train_zip)
+dim(test_zip)
+
+```
+
+```{r}
+
+zipcode_train <- subset(train_zip, train_zip[,1] == 9 | train_zip[,1] == 7)
+
+class(zipcode_train)
+dim(zipcode_train)
+
+zipcode_test <- subset(test_zip, test_zip[,1] == 9 | test_zip[,1] == 7)
+
+dim(zipcode_test)
+
+```
+
+
+```{r}
+
+x_train <- zipcode_train[,2:ncol(zipcode_train)]
+y_train <-data.frame(zipcode_train$V1)
+
+dim(x_train)
+dim(y_train)
+
+x_test <- zipcode_test[,2:ncol(zipcode_test)]
+y_test <- data.frame(zipcode_test[,1])
+
+dim(x_test)
+dim(y_test)
+
+```
+
+```{r}
+
+#Fitting train data into Linear model
+
+linear_model <- lm(V1 ~ ., data <- zipcode_train)
+linear_prediction <- predict(linear_model, x_test)
+
+test_error <- mean(linear_prediction != y_test)
+test_error
+
+```
+
+```{r}
+
+## Fitting data in KNN model
+
+library(class)
+
+ytest <- as.numeric(zipcode_test[,1])
+
+k <- c(1, 3, 5, 7, 9, 11, 13, 15)
+
+k_error <- rep(NA, length(k))
+for (i in 1:length(k)) {KNN_pred = knn(train= x_train, test = x_test ,cl<-zipcode_train$V1, k = k[i])
+    k_error[i] = mean(KNN_pred != ytest)
+}
+
+plot(KNN_pred)
+
+```
+
+
+```{r}
+
+plot(k_error,type = 'l', col = '2')
+
+## Error of Linear Model > Error of KNN model. With the current data KNN Model performance is better with the smaller k values.
+
+```
+
+
+

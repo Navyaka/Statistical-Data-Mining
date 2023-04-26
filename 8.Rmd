@@ -1,0 +1,319 @@
+---
+title: "Navyaka Kandula_HW4"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###################### Q.1 ######################
+
+```{r}
+
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install(c("graph", "RBGL", "Rgraphviz"))
+# 
+# 
+# install.packages('gRain')
+# install.packages('gRbase')
+# install.packages('ggm')
+```
+```{r}
+rm(list=ls())
+library("gRain")
+library("Rgraphviz")
+library("gRbase")
+library("ggm")
+library("bnlearn")
+library("igraph")
+```
+
+```{r}
+
+data(cad1,package="gRbase")
+cad = hc(cad1)
+net<-as(amat(cad),"graphNEL")
+
+
+a = c(1,3,3,4,4,4,4,1,2,1,1,1,3,2)
+mat = matrix(0,nrow=14,ncol=14)
+rownames(mat)<-names(cad1)
+colnames(mat)<-names(cad1)
+
+for (b in 2:4){mat[a==b,a<b]<-1}
+
+d = data.frame(get.edgelist(as(mat,"igraph")))
+names<-c("from","to")
+
+cad_new<-hc(cad1,blacklist=d)
+net<-as(amat(cad_new),"graphNEL")
+
+
+X11()
+plot(net)
+
+
+
+image = list(~Sex,~Smoker|Sex,~Inherit|Smoker,~SuffHeartF,
+            ~Hyperchol|Inherit:SuffHeartF,~CAD|Hyperchol:Inherit,
+            ~AngPec|CAD,~AMI|CAD,~Qwave|CAD:AMI,~Hypertrophi|CAD:SuffHeartF,
+            ~Heartfail|Hypertrophi,~STchange|Hypertrophi,
+            ~STcode|SuffHeartF:STchnage,~Qwavecode|Hypertrophi:STcode)
+
+stack = dagList(image)
+
+
+ch = c("no","yes")
+us = c("Nonusable","Usable")
+ty = c("Atypical","None", "Typical")
+g = c("Female","Male")
+
+
+cpt = extractCPT(cad1, net)
+S = cptable(~Sex,values=c(cpt$Sex),levels=g)
+
+Smk = cptable(~Smoker|Sex,values=c(cpt$Smoker,cpt$Sex),levels=ch)
+
+Inh = cptable(~Inherit|Smoker,values= c(cpt$Inherit, cpt$Smoker),levels=ch)
+
+hrt = cptable(~SuffHeartF,values=c(cpt$SuffHeartF),levels=ch)
+
+Hyp = cptable(~Hyperchol|Inherit:SuffHeartF,values=c(cpt$Hyperchol,
+                                                          cpt$Inherit),levels=ch)
+
+C = cptable(~CAD|Inherit:Hyperchol,values=c(cpt$CAD,cpt$Inherit,
+                                             cpt$Hyperchol),levels=ch) 
+
+MI = cptable(~AMI,values=c(cpt$AMI),levels=ch)
+
+Q = cptable(~Qwave|CAD:AMI,values = c(cpt$Qwave,cpt$CAD,cpt$AMI),levels=ch)
+
+AP = cptable(~AngPec|CAD,values=c(cpt$AngPec,cpt$CAD),levels=ty)
+
+Hyper = cptable(~Hypertrophi|SuffHeartF,values=c(cpt$Hypertrophi,
+                                                      cpt$SuffHeartF),levels=ch)
+
+STC = cptable(~STchange|CAD:Hypertrophi,values=c(cpt$STchange,cpt$CAD
+                                                     ,cpt$Hypertrophi),levels=ch)
+                                                                    
+
+Hf = cptable(~Heartfail|Hypertrophi,values=c(cpt$Heartfail,
+                                                   cpt$Hypertrophi),levels=ch)
+
+STcd = cptable(~STcode|SuffHeartF:STchange,values=c(cpt$STcode,cpt$SuffHeartF
+                                                  ,cpt$STchange),levels=us)
+Qcd = cptable(~QWavecode|STcode:STchange,values=c(cpt$QWavecode,cpt$STcode,
+                                                       cpt$STchange),levels=us)
+
+
+
+final = compileCPT(list(S,Smk,Inh,hrt,Hyp,C,MI,Q,AP,
+                                Hyper,STC,Hf,STcd,Qcd))
+
+
+
+o1 = grain(final)
+o2 = compile(o1)
+o3 = propagate(o2)
+
+
+
+X11()
+plot(o2)
+
+
+dSep(as(stack,"matrix"), "Sex", "Inherit", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "Hyperchol", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "Hyperchol", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "CAD", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "CAD", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "AngPec", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "AngPec", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "AngPec", "CAD")
+dSep(as(stack,"matrix"), "Sex", "AMI", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "AMI", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "AMI", "CAD")
+dSep(as(stack,"matrix"), "Sex", "AMI", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "AMI", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "AMI", "CAD")
+dSep(as(stack,"matrix"), "Sex", "STchange", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "STchange", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "Qwave", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "Qwave", "Inherit")
+dSep(as(stack,"matrix"), "Sex", "Qwave", "CAD")
+dSep(as(stack,"matrix"), "Sex", "Hypertrophi", "Smoker")
+dSep(as(stack,"matrix"), "Sex", "Hypertrophi", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "CAD", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "AngPec", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "AngPec", "CAD")
+dSep(as(stack,"matrix"), "Smoker", "Hyperchol", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "AMI", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "AMI", "CAD")
+dSep(as(stack,"matrix"), "Smoker", "STchange", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "Qwave", "Inherit")
+dSep(as(stack,"matrix"), "Smoker", "Qwave", "CAD")
+dSep(as(stack,"matrix"), "Smoker", "Hypertrophi", "Inherit")
+
+
+
+o2.ev = setFinding(o2,nodes=c("Sex","Hyperchol"),
+                                 states=c("Female","Yes"))
+                                              
+ab = querygrain(o2.ev,nodes=c("Heartfail","CAD"),ty="marginal")
+nab<- querygrain(o2,nodes=c("Heartfail","CAD"),ty="marginal")
+
+ab$CAD
+nab$CAD
+ab$Heartfail
+nab$Heartfail  
+
+
+
+q1 <- querygrain(o2.ev, nodes = c("Heartfail", "CAD"), ty = "joint")
+q2 <- querygrain(o2, nodes = c("Heartfail", "CAD"), ty = "joint")
+
+q1
+q2
+
+q3 <- querygrain(o2.ev, nodes = c("Heartfail", "CAD"), ty = "conditional")
+q4 <- querygrain(o2, nodes = c("Heartfail", "CAD"), ty = "conditional")
+
+q3
+q4
+
+
+# Probability of Heart fail and CAD increases in joint probability and the probability of the Heart fail increases if hyperchol increases
+  
+
+sim = simulate.grain(o2, nsim = 100)
+
+
+sim1 = hc(sim, restart = 5)
+simulation = as(amat(sim1), "graphNEL")
+
+X11()
+plot(simulation)
+ext = extractCPT(sim,simulation)
+
+table(sim)
+summary(sim)
+
+
+predict(o2, response="Smoker", newdata=sim)
+
+
+predict(o2, response="CAD", newdata=sim)
+
+```
+
+
+###################### Q.4 ######################
+
+
+```{r}
+#install.packages("gRbase")
+library(gRbase)
+library(gRain)
+library(glasso)
+library(graph)
+library(corrplot)
+library(kohonen)
+
+
+plot(pressure)
+data = data(state)
+
+data_new = data.frame(state.x77) 
+head(state.x77)
+C = cor(state.x77)
+corrplot(C)
+
+data_state = state.x77[,]
+
+pca = prcomp(scale(data_state))
+
+x1 = min(pca$x[,1])-1
+x2 = max(pca$x[,1])+1
+y1 = min(pca$x[,2])-1
+y2 = max(pca$x[,2])+1
+
+biplot(pca, chs = c(1,2), scale = 0, x_axis_limit = c(x1, x2), y_axis_limit = c(y1, y2))
+
+data_new2 <- data_state[-c(2), ]
+data_new2
+
+S_body = cov.wt(data_new2, method = "ML")
+PC = cov2pcor(S_body$cov)
+
+diag(PC) <- 0
+heatmap(PC)
+
+ls("package:glasso")
+
+S = S_body$cov
+m0.lasso = glasso(S, rho = 1)
+
+names(m0.lasso)
+my.edges <- m0.lasso$wi != 0 
+
+diag(my.edges) = 0 
+g.lasso = as(my.edges, "graphNEL") 
+plot(g.lasso)
+
+
+set.seed(123)
+som <- somgrid(xdim = 5, ydim = 5, topo = "rectangular", neighbourhood.fct = "bubble", toroidal=FALSE) 
+clustering <- som(data_state, grid = som, rlen = 3000)
+X11()
+plot(clustering, main = "SOM")
+
+```
+
+###################### Q.5 ######################
+
+
+
+```{r}
+
+library(tidyverse)
+library(cluster)
+library(factoextra)
+
+iris
+df <- iris
+head(iris)
+
+data <- na.omit(df)
+data <- scale(df[1:4])
+head(data)
+distance <- dist(data, method = "euclidean")
+
+
+hierarchial <- agnes(data, method = "complete")
+pltree(hierarchial, cex = 0.6, hang = -1, main = "Dendrogram",xlab = 'iris data',ylab = 'Euclidean distance')
+
+
+hierarchial$ac
+
+
+hierarchial1 <- agnes(df, method = "single")
+pltree(hierarchial1, cex = 0.6, hang = -1, main = "Dendrogram")
+
+hierarchial2 <- agnes(df, method = "average")
+pltree(hierarchial2, cex = 0.6, hang = -1, main = "Dendrogram")
+
+
+methods <- c( "average", "single", "complete", "ward")
+names(methods) <- c( "average", "single", "complete", "ward")
+
+x <- function(x) { agnes(df, method = x)$ac}
+map_dbl(methods, x)
+
+```
+
+
+

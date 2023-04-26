@@ -1,0 +1,249 @@
+```{r}
+
+## Data
+
+data(airquality)
+
+```
+
+# #################### 1.a ####################
+
+```{r}
+
+## Dimension of the data
+
+dim(airquality)
+
+```
+
+# #################### 1.b ####################
+
+```{r}
+
+## Solar measurements that are missing
+
+sum(is.na(airquality$Solar.R))
+
+```
+
+# #################### 1.c ####################
+
+```{r}
+
+## Calculating averages in two different ways.
+
+total1 <- (colSums(!is.na(airquality))[1])
+total2 <- (colSums(!is.na(airquality))[2])
+total3 <- (colSums(!is.na(airquality))[3])
+total4 <- (colSums(!is.na(airquality))[4])
+
+## Average for ozone
+
+mean(airquality$Ozone, na.rm = TRUE)
+sum(airquality$Ozone, na.rm = TRUE)/total1
+
+## Average for solar
+
+mean(airquality$Solar.R, na.rm = TRUE)
+sum(airquality$Solar.R, na.rm = TRUE)/total2
+
+## Average for wind
+
+mean(airquality$Wind, na.rm = TRUE)
+sum(airquality$Wind, na.rm = TRUE)/total3
+
+## Average for temp
+
+mean(airquality$Temp, na.rm = TRUE)
+sum(airquality$Temp,na.rm = TRUE)/total4
+
+```
+
+# #################### 1.d ####################
+
+```{r}
+
+## Eliminating missing solar data
+
+missing_solar_data <- which(is.na(airquality[,2]))
+new_data <- airquality[-missing_solar_data, ]
+
+dim(new_data)
+new_data
+
+```
+
+# #################### 1.e ####################
+
+```{r}
+
+## Recomputing averages with modified dataset in 1.d
+
+mean(new_data$Ozone,na.rm=TRUE)
+mean(new_data$Solar.R,na.rm=TRUE)
+mean(new_data$Wind,na.rm=TRUE)
+mean(new_data$Temp,na.rm=TRUE)
+
+```
+       
+
+# #################### 2.a ####################
+
+```{r}
+
+## Creating datasets for each month
+
+month5 <- which(airquality$Month == 5)
+dataset_5 <- airquality[month5,]
+dataset_5
+
+month6 <- which(airquality$Month == 6)
+dataset_6 <- airquality[month6,]
+dataset_6
+
+month7 <- which(airquality$Month == 7)
+dataset_7 <- airquality[month7,]
+dataset_7
+
+month8 <- which(airquality$Month == 8)
+dataset_8 <-  airquality[month8,]
+dataset_8
+
+month9 <- which(airquality$Month == 9)
+dataset_9 <- airquality[month9,]
+dataset_9
+
+```
+
+# #################### 2.b ####################
+
+```{r}
+
+## Saving above monthly datasets into list
+
+list_data <- list()
+list_data[[1]] <- month5
+list_data[[2]] <- month6
+list_data[[3]] <- month7
+list_data[[4]] <- month8
+list_data[[5]] <- month9
+
+list_data
+
+```
+
+# #################### 2.c ####################
+
+```{r}
+
+## Saving the above list from 2.b into file
+
+save(list_data, file = "List_Month_Data.RData")
+
+```
+
+
+# #################### 3 ####################
+
+```{r}
+
+library(ISLR2)
+auto_data <- data("Auto")
+dim(Auto)
+head(Auto)
+
+```
+
+
+```{r}
+
+## Exploratory Data Analysis of full dataset
+
+plot(Auto, main = "plot")
+boxplot(Auto, main = "Box_Plot")
+summary(Auto)
+
+```
+```{r}
+
+## Exploratory Data Analysis of Processed Data
+
+Processed_data <- Auto[,-c(9)]
+
+## Considering 9th column as the data has unique values and does not effect predictive model
+
+plot(Processed_data[,1:2])
+plot(Processed_data[,3:5])
+plot(Processed_data[,5:8])
+
+hist(Processed_data[,2], breaks = 10, main = "Histogram of Cylinders")
+hist(Processed_data[,4], breaks = 10, main = "Histogram of Horsepower")
+hist(Processed_data[,6], breaks = 10, main = "Histogram of Acceleration")
+hist(Processed_data[,8], breaks = 10, main = "Histogram of Origin")
+
+library(lattice)
+xyplot(cylinders~mpg, data = Processed_data,main="Pair plot for cylinders and mpg")
+xyplot(displacement~horsepower, data = Processed_data,main="Pair plot for displacement and horsepower")
+xyplot(weight~acceleration, data = Processed_data,main="Pair plot for weight and acceleration")
+xyplot(year~origin, data = Processed_data,main="Pair plot for year and origin")
+
+
+boxplot(Auto$cylinders, main = "Box_Plot of Cylinders")
+boxplot(Auto$horsepower, main = "Box_Plot of Horsepower")
+boxplot(Auto$acceleration, main = "Box_Plot of Acceleration")
+boxplot(Auto$origin, main = "Box_Plot of Origin")
+
+cor(Processed_data) ## Correlation matrix
+
+save(Processed_data, file = "Processed_Data.RData")
+
+```
+
+#################### 4 ####################
+
+```{r}
+
+## Multiple_Regression_Model
+
+Multiple_Regression_Model <- lm(mpg ~ cylinders + horsepower + weight + displacement + year + acceleration + origin, data = Processed_data)
+summary(Multiple_Regression_Model)
+
+```
+
+
+# #################### 4.a ####################
+
+```{r}
+
+## weight,displacement,year and origin has significant relationship to the response
+
+```
+
+# #################### 4.b ####################
+
+```{r}
+
+## By approximating linear regression model, Y= a+bX. Here a is intercept and b is estimate value-3/4
+
+```
+
+# #################### 4.c ####################
+
+```{r}
+
+new_model <- lm(mpg ~ cylinders  * horsepower + weight * displacement : year + acceleration * origin,data= Processed_data)
+
+```
+
+```{r}
+
+summary(new_model)
+
+```
+
+```{r}
+
+## Here, Cylinders, horsepower, weight, cylinders:horsepower are significant to predict.
+
+```
+

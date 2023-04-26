@@ -1,0 +1,306 @@
+---
+title: "Navyaka_Kandula_Homework 2"
+author: "Navyaka Kandula"
+date: '2022-03-27'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+
+rm(list = ls())
+#install.packages("recommenderlab")
+library("recommenderlab")
+citation("recommenderlab")
+ls("package:recommenderlab")
+
+```
+
+# -----------------Question 1-------------------
+```{r}
+
+# Reading MovieLense Data
+
+#?MovieLense
+data(MovieLense)
+dim(MovieLense) # 943 1664
+head(MovieLense) # 6 x 1664 rating matrix of class ‘realRatingMatrix’ with 789 ratings
+
+R <- as(MovieLense, "realRatingMatrix")
+#?recommenderRegistry
+#recommenderRegistry$get_entries(dataType = "realRatingMatrix")
+
+# Creating Recommender System using UBCF & POPULAR methods.
+
+my_rs <- Recommender(R, method="UBCF")
+my_rs_popular <- Recommender(R[1:943], method = "POPULAR")
+
+my_rs_prediction <- predict(my_rs, R, n=5, type='ratings')
+k_users <- as(my_rs_prediction, "realRatingMatrix")
+getRatingMatrix(k_users[50:55,50:55])
+
+# Creating top 10 recommendations for 3 users
+
+my_rs_recom <- predict(my_rs, R[53:55], n=10)
+my_rs_recom
+as(my_rs_recom, "list")
+
+
+# Predicting 3 users ratings 
+
+user_ratings <- predict(my_rs, R[53:55], type = "ratings")
+user_ratings
+as(user_ratings, "matrix")[,50:55]
+
+
+predict_ratings <- predict(my_rs, R[53:55], type = "ratingMatrix")
+predict_ratings
+as(predict_ratings, "matrix")[,50:55]
+
+
+############### Evaluating Recommender System ###############
+
+dim(R)
+data_sample <- sample(R, 943)
+dim(data_sample)
+evaluation <- evaluationScheme(data_sample, method = "split", given = 15, train=0.5, goodRating=4)
+evaluation
+
+# Ratings prediction using UBCF
+
+# ?predict
+prediction <- predict(my_rs, getData(evaluation, "known"), type="ratings")
+prediction1 <- predict(my_rs_popular, getData(evaluation, "known"), type="ratings")
+
+# Error Calculation between prediction & unknown test set
+
+# ?calcPredictionAccuracy
+ERROR <- rbind(UBCF = calcPredictionAccuracy(prediction, getData(evaluation,"unknown")))
+ERROR1 <- rbind(POPULAR = calcPredictionAccuracy(prediction1, getData(evaluation,"unknown")))
+ERROR
+ERROR1
+
+#Error for Recommender Model using Popular Method is less compared to Model using UBCF.
+
+# Evaluation of top N
+
+scheme <- evaluationScheme(data_sample, method="cross",k=4, given=3, goodRating=4)
+scheme
+
+results<- evaluate(scheme, method = "POPULAR", type="topNList", n=c(50, 51, 52, 53, 54, 55))
+results
+getConfusionMatrix(results)[[1]]
+
+X11()
+plot(results, annotate=TRUE) # ROC Curve
+graphics.off()
+
+```
+
+
+# -----------------Question 2(a)-------------------
+
+```{r}
+
+data(state)
+dim(state.x77) # 50  8
+
+# state.x77 has Population, Income, Illiteracy, Life Exp, Murder, HS Grad,  Frost, Area that is asked to focus
+
+data_frame <- state.x77
+head(data_frame)
+data_frame <- scale(data_frame)
+
+# calculating Euclidean distance for Hierarchical Clustering
+
+distance <- dist(data_frame)
+dim(as.matrix(distance))
+
+hierarchical_clustering <- hclust(distance, method = "ave")
+
+# Plotting Hierarchical Clustering
+
+x11()
+plot(hierarchical_clustering, hang=-1, main = "Hierarchial Clustering of States")
+
+# The higher cluster is at height of nearly 7.5 for state Alaska and lower cluster is at height of between 0.5 & 1 for states Iowa & Nebraska.
+
+```
+
+# -----------------Question 2(b)-------------------
+
+```{r}
+
+#install.packages("kohonen")
+
+library(kohonen)
+set.seed(123)
+
+# ?somgrid
+som_clustering <- somgrid(xdim = 5, ydim = 5, topo = "rectangular", neighbourhood.fct = "bubble", toroidal = FALSE)
+dataframe_som <- som(data_frame, grid = som_clustering, rlen = 3000)
+
+x11()
+plot(dataframe_som, main = "SOM Clustering of States")
+graphics.off()
+
+# The Maps were formed for all 8 labels of Population, Income, Illiteracy, Life Exp, Murder, HS Grad,  Frost, Area. 
+# 5 x 5 Map explains thatPopulation, Area & HS Grad are at similar rate followed by Murder rate & Frost. The least percentage is Life Exp where Income is not identified in this map but is available in others.
+
+```
+
+
+# -----------------Question 2(c)-------------------
+
+```{r}
+
+######### Hierarchical_Clustering : #########
+
+  
+#Need not specify clusters before itself.
+#It is not suitable for large datasets
+#Here the clustering is with respect to States( i.e. rows)
+
+######### Self_organizing Maps(SOM) : #########
+
+  
+#Visualization can be easily interpretted, altered and understood.
+#Also, suitable for large and complex datasets.
+#It requires exact and ampful data for clustering, Also difficult for unique groups.
+#Here the clustering is with respect to Focussed data( i.e. columns)
+
+
+```
+
+# -----------------Question 3(a)-------------------
+
+```{r}
+
+library(fossil)
+
+data(iris)
+dim(iris) #  150   5
+head(iris)
+
+# getting data ready for principal components
+X <- iris[,1:4]
+Y <- iris[,5]
+
+# scaling the data
+dataframe = scale(X)
+
+# computing principal components
+
+# ?prcomp
+
+principal_components <- prcomp(dataframe, center = FALSE, scale = FALSE)
+
+# loadings  - make the projection
+
+principal_components$rotation
+
+# scores 
+
+principal_components$x[,1] # 150 flower scores on PC1
+principal_components$x[,2] # 150 flower scores on PC2
+
+final_data <- data.frame(principal_components$x[,1:2])  ## final data to do the clustering with.
+
+# Creating a string for 3 classes with three colors
+
+my_colors <- rep("black", length(dataframe[,1]))
+
+unique(Y) # Changing the color of setosa and versicole, and leave virginica black
+c1 <- which(Y == "setosa")
+my_colors[c1] <- "red"
+c2 <- which(Y == "versicolor")
+my_colors[c2] <- "green"
+
+my_colors
+
+principal_components_2 <- c(principal_components$x[,1], principal_components$x[,2])
+
+X11()
+plot(principal_components_2, xlab = "principal_component_1 scores", ylab = "principal_component_2 scores", 
+     col = my_colors, main = "Plot using first 2 Principal Components")
+
+
+```
+
+
+# -----------------Question 3(b)-------------------
+
+```{r}
+
+final_data1 <- data.frame(principal_components$x[,1:2])
+
+# ?kmeans
+kmeans_clustering <- kmeans(final_data1, centers = 5, nstart = 10)
+
+my_symbols <- c(1:5)[kmeans_clustering$cluster]
+my_colors <- c("red","black","green","yellow","blue")[kmeans_clustering$cluster]
+
+X11()
+plot(final_data1, xlab = "principal_component_1 scores", ylab = "principal_component_2 scores", pch = my_symbols, 
+     col = my_colors, main="k-means Clustering Plot")
+
+```
+
+# -----------------Question 3(c)-------------------
+
+```{r}
+
+rand_index <- rand.index(kmeans_clustering$cluster, as.numeric(iris$Species)) #  0.7697539
+
+adjusted_rand_index <- adj.rand.index(kmeans_clustering$cluster, as.numeric(iris$Species)) # 0.4263769
+
+# As rand_index is quite high, but adjusted_rand_index has decreased below 0.5, k-means=5 might not be optimal.
+
+```
+
+# -----------------Question 3(d)-------------------
+
+```{r}
+
+# install.packages("bootcluster")
+
+library("cluster")
+library("bootcluster")
+
+# gap statistics(k-means) method
+
+# ?clusGap
+gap_statistics <- clusGap(X, kmeans, nstart = 10, K.max = 10, B = 100)
+
+X11()
+plot(gap_statistics, main = "Gap Statistic Plot")
+#from the gap statistic plot the Elbow point is between 3 and 4
+
+kmeans_clustering1 <- kmeans(X, centers = 3, nstart = 10)
+# ?silhouette
+distance <- dist(X)
+silhouette_method <- silhouette(kmeans_clustering1$cluster, dist=distance)
+
+X11()
+plot(silhouette_method, main = "Silhouette Plot") 
+# Silhoutte width = 0.49 which is average Silhouette width [-1,1] for 5 clusters(centers=5), Silhoutte width = 0.55 which is average Silhouette width [-1,1] for 3 clusters(centers=3)
+
+################# Number of Clusters = 3 ######################
+
+```
+
+# -----------------Question 3(e)-------------------
+
+```{r}
+
+# Based on rand_index & adjusted_rand_index scores, 5 clusters are not optimal.
+# According to Gap_statistics, the elbow point lies between 3 & 4.
+# Also, using silhouette_method, the silhouette_width(0.55) is optimal for 3 clusters compared to 5 clusters.
+
+# Hence, in my view the decision on clustering method would be using rand_index & adjusted_rand_index scores and Sillhoutte_width than hierarchical_clustering and som_clustering. However som_clustering is better compared to hierarchical_clustering for large data sets.
+
+```
+
+```{r}
+```

@@ -1,0 +1,590 @@
+---
+title: "Navyaka_Kandula_Homework_3"
+author: "Navyaka Kandula"
+date: "2022-10-26"
+output: pdf_document
+---
+
+##################### 1.a #####################
+
+```{r}
+
+set.seed(0000) 
+
+dataset <- NULL
+for (i in 1:1000){dataset<-rbind(dataset,sample(c(-50:50),25,replace=TRUE))}
+dim(dataset)
+head(dataset)
+
+beta <- c(2,0,-3,5,0,3,5,9,0,0,9,4,0,5,3,9,4,3,6,0,8,0,4,7,9)
+model <- dataset%*%as.matrix(beta)+3.5
+
+```
+
+##################### 1.b #####################
+
+```{r}
+
+set.seed(0000) 
+
+dataset_new <- sample(1:1000,round(1/2*1000),replace=FALSE)
+
+train_x <- dataset[dataset_new,]
+train_y <- model[dataset_new]
+
+test_x <- dataset[-dataset_new,]
+test_y <- model[-dataset_new]
+
+train <- cbind(train_x,train_y)
+data_train <- data.frame(train)
+
+test <- cbind(test_x,test_y)
+data_test <- data.frame(test)
+
+```
+
+##################### 1.c #####################
+
+```{r}
+
+library(MASS)
+library(leaps)
+
+model_best <- regsubsets(train_y~.,data=data_train,nbest=1,nvmax=25,method='exhaustive')
+model_forward <- regsubsets(train_y~.,data=data_train,nbest=1,nvmax=25,method='forward')
+model_backward <- regsubsets(train_y~.,data=data_train,nbest=1,nvmax=25,method='backward')
+
+best_error_train <-matrix(rep(NA,25)) 
+best_error_test <- matrix(rep(NA,25)) 
+
+forward_error_train <- matrix(rep(NA,25)) 
+forward_error_test <- matrix(rep(NA,25)) 
+
+backward_error_train <- matrix(rep(NA,25)) 
+backward_error_test <- matrix(rep(NA,25)) 
+
+predict.regsubsets <- function(object, newdata, id)
+{ 
+formula <- as.formula(object$call[[2]])
+model_matrix <- model.matrix(formula, newdata)
+coefficient <- coef(object,id=id)
+names_coefficient <- names(coefficient)
+model_matrix[,names_coefficient]%*%coefficient
+}
+
+for (i in 1:25){
+  
+  model_best_train = predict(model_best, newdata = data_train, id = i)
+  model_best_test = predict(model_best, newdata = data_test, id = i)
+  
+  model_forward_train = predict(model_forward, newdata = data_train, id = i)
+  model_forward_test = predict(model_forward, newdata = data_test, id = i)
+  
+  model_backward_train = predict(model_backward, newdata = data_train, id = i)
+  model_backward_test = predict(model_backward, newdata = data_test, id = i)
+  
+  best_error_train[i] = (1/length(train_y))*sum((train_y-model_best_train)**2)
+  best_error_test[i] = (1/length(test_y))*sum((test_y-model_best_test)**2)
+  
+  forward_error_train[i] = (1/length(train_y))*sum((train_y-model_forward_train)**2)
+  forward_error_test[i] = (1/length(test_y))*sum((test_y-model_forward_test)**2)
+  
+  backward_error_train[i] = (1/length(train_y))*sum((train_y-model_backward_train)**2)
+  backward_error_test[i] = (1/length(test_y))*sum((test_y-model_backward_test)**2)
+  
+}
+
+sum(is.na(best_error_train))
+
+sum(is.na(forward_error_train))
+sum(is.na(backward_error_train))
+
+plot(best_error_train, col = "red", type = "b", xlab = "Total Variables",ylab = "MSE",main='Best Model Subset')
+lines(best_error_test, col = "black", type = "b")
+legend(x='topright',legend=c('Train Error','Test Error'),col=c('red','black'))
+
+plot(forward_error_train, col = "red", type = "b", xlab = "Total Variables",ylab = "MSE",main='Foward Model')
+lines(forward_error_test, col = "black", type = "b")
+legend(x='topright',legend=c('Train Error','Test Error'),col=c('red','black'))
+
+
+plot(backward_error_train, col = "red", type = "b", xlab = "Total Variables",ylab = "MSE",main='Backward Model')
+lines(backward_error_test, col = "black", type = "b")
+legend(x='topright',legend=c('Train Error','Test Error'),col=c('red','black'))
+
+
+```
+
+##################### 1.d #####################
+
+```{r}
+
+which(best_error_test == min(best_error_test))
+which(forward_error_test == min(forward_error_test))
+which(backward_error_test == min(backward_error_test))
+
+## The test set takes least value for two of my models and those models are best subset and forward model. The test is minimized to an intermediate model size of 19
+
+```
+
+##################### 1.e #####################
+
+```{r}
+
+coefficient_values <- coef(model_best,19)
+coefficient_values
+
+
+## The coefficients obtained are 25 and value ranges from -3 to 9. The repeated coefficient values also exists.
+
+```
+
+##################### 1.f #####################
+
+```{r}
+
+MSE <- matrix(rep(0,25)) 
+
+for (i in 1:25)
+{
+model = coef(model_best,i) 
+for (j in 1:25)
+    {
+co=paste('V',j,sep='') 
+if(co %in% names(model)){MSE[j]<-MSE[j]+((model[[co]]-beta[j])**2)        }
+    } 
+}
+
+output <- sqrt(MSE)
+output
+
+plot(output,type='b',xlab='Coefficient estimates')
+
+## Tha nature of plot is spikes and troughs. The highest value of required expression is found at the 21st coefficient value which is "8.000000e+00" at which the output value is "8.115311e-01"
+
+```
+
+
+##################### 2.a #####################
+
+```{r}
+
+library(MASS)
+library(klaR)
+load("C:/Users/navya/OneDrive/Desktop/CDA541-Statistical Data Mining I/Diabetes.RData")
+
+diabetes_data <- Diabetes
+head(diabetes_data)
+
+cor(diabetes_data[,1:5])
+
+## The covariance is different for different classes according to the correlation matrix
+
+## colors <- c("red", "black", "blue")[diabetes_data$group]
+## plot_character <- c(7,8,9)[diabetes_data$group]
+## plot(diabetes_data[,1:5], col=colors, pch=plot_character)
+
+pairs(Diabetes[,-6], col = Diabetes$group)
+
+```
+
+##################### 2.b #####################
+
+```{r}
+
+## LDA
+
+set.seed(0000)
+
+dataset_new <- sample(1:nrow(diabetes_data), round(2/3*nrow(diabetes_data)), replace = FALSE)
+
+diabetes_train <- diabetes_data[dataset_new, ]
+dim(diabetes_train)
+
+diabetes_test <- diabetes_data[-dataset_new, ]
+dim(diabetes_test)
+
+linear_discriminant_analysis <- lda(group~., data = diabetes_train)
+linear_discriminant_analysis
+
+prediction_train <- predict(linear_discriminant_analysis, newdata = diabetes_train)
+prediction_test <- predict(linear_discriminant_analysis, newdata = diabetes_test)
+
+predict_lda_train <- prediction_train$class
+predict_lda_test <- prediction_test$class
+
+model_lda_train <- diabetes_train$group
+model_lda_test <- diabetes_test$group
+
+error_LDA_train <- (1/length(model_lda_train))*length(which(model_lda_train != predict_lda_train))
+error_LDA_train
+
+error_LDA_test <- (1/length(model_lda_test))*length(which(model_lda_test != predict_lda_test))
+error_LDA_test
+
+```
+
+```{r}
+
+## QDA
+
+quadratic_discriminant_analysis <- qda(group~., data = diabetes_train)
+quadratic_discriminant_analysis
+
+prediction_train <- predict(quadratic_discriminant_analysis, newdata = diabetes_train)
+prediction_test <- predict(quadratic_discriminant_analysis, newdata = diabetes_test)
+
+predict_qda_train <- prediction_train$class
+predict_qda_test <- prediction_test$class
+
+model_qda_train <- diabetes_train$group
+model_qda_test <- diabetes_test$group
+
+error_QDA_train <- (1/length(predict_qda_train))*length(which(model_qda_train != predict_qda_train))
+error_QDA_train
+
+error_QDA_test <- (1/length(predict_qda_test))*length(which(model_qda_test != predict_qda_test))
+error_QDA_test
+
+## The test error of LDA < test error of QDA. So, the performance of QDA is less compared to that of LDA.
+
+```
+
+##################### 2.c #####################
+
+
+```{r}
+
+new_data <- data.frame(glutest = 68,instest = 122,sspg = 544,relwt = 1.86,glufast = 184)
+new_data
+
+predict_lda = predict(linear_discriminant_analysis,newdata = new_data)
+predict_lda$class
+
+## LDA assigns the given case to "Normal" class
+
+predict_qda = predict(quadratic_discriminant_analysis,newdata = new_data)
+predict_qda$class
+
+## QDA assigns the given case to "Overt_Diabetic" class
+
+```
+
+##################### 2.d #####################
+
+```{r}
+
+model_lda <- rda(group~., data = diabetes_train, regularization = c(gamma=0, lambda=1))
+model_qda <- rda(group~., data = diabetes_train, regularization = c(gamma=0, lambda=0))
+model_rda <- rda(group~., data = diabetes_train, regularization = c(gamma=0, lambda=.5))
+
+
+predict_lda_testdata <- predict(model_lda, newdata=diabetes_test)$class
+predict_qda_testdata <- predict(model_qda, newdata=diabetes_test)$class
+predict_rda_testdata <- predict(model_rda, newdata=diabetes_test)$class
+
+
+alpha <- seq(from = 0, to = 1, by = .1)
+
+error <- c()
+for (i in 1:length(alpha)){
+	model_rda <- rda(group~., data = diabetes_train, regularization = c(gamma=0, lambda=alpha[i]))
+	predict_qda_test <- predict(model_rda, newdata=diabetes_test)$class
+	temp_error <- (1/length(predict_qda_test))*length(which(predict_qda_test != diabetes_test$group))
+	error <- c(error, temp_error)
+}
+
+error
+error_minimum <- min(error)
+error_minimum
+
+alpha_minimum <- which(error == min(error))
+alpha_minimum
+
+plot(alpha,error, type = 'l')
+
+## The error lies between 0 and 0.15 where the minimum error is "0.08333333 at alpha = 0.7. Here, the optimal value of alpha 0.7 in this case is nearer to LDA, Hence we LDA performance is more compared to that of QDA and this support observations about the covariance matrices in 2.a"
+
+```
+
+##################### 3.a #####################
+
+```{r}
+
+library(ISLR2)
+library(lattice)
+library(corrplot)
+
+dim(Boston)
+new_data <- Boston
+sum(is.na(Boston))
+summary(new_data)
+
+pairs(Boston)
+
+corrplot(cor(new_data),method = "number",order = "hclust")
+
+new_data$crim <- ifelse(new_data$crim > median(new_data$crim),1,0)
+
+set.seed(0000)
+dataset_split <- sample(1:nrow(new_data), round(2/3*nrow(new_data)), replace = FALSE)
+
+boston_train <- new_data[dataset_split, ]
+dim(boston_train)
+
+boston_test <- new_data[-dataset_split, ]
+dim(boston_test)
+
+```
+
+
+```{r}
+
+## Logistic Regression
+
+logistic_regression <- glm(crim ~ .-zn -dis -ptratio -rm, data = boston_train, family = "binomial")
+summary(logistic_regression) 
+
+predict_boston_train <- predict(logistic_regression,newdata = boston_train,type = "response")
+predict_boston_test <- predict(logistic_regression,newdata = boston_test,type = "response")
+
+boston_train_new <- round(predict_boston_train)
+boston_test_new <- round(predict_boston_test)
+
+error_boston_LG_train <- sum(abs(predict_boston_train - boston_train$crim))/length(boston_train_new)
+error_boston_LG_train
+
+error_boston_LG_test <- sum(abs(predict_boston_test - boston_test$crim))/length(boston_test_new)
+error_boston_LG_test
+
+```
+
+
+```{r}
+
+## LDA
+
+library(klaR)
+
+Boston_linear_discriminant_analysis <- lda(crim~., data = boston_train)
+Boston_linear_discriminant_analysis
+
+predict_boston_LDA_train <- predict(Boston_linear_discriminant_analysis, newdata = boston_train)
+predict_boston_LDA_test <- predict(Boston_linear_discriminant_analysis, newdata = boston_test)
+
+error_boston_LDA_train <- (1/length(boston_train$crim))*length(which(boston_train$crim != predict_boston_LDA_train$class))
+error_boston_LDA_train
+
+error_boston_LDA_test <- (1/length(boston_test$crim))*length(which(boston_test$crim != predict_boston_LDA_test$class))
+error_boston_LDA_test
+
+```
+
+```{r}
+
+## QDA
+
+Boston_quadratic_discriminant_analysis <- qda(crim~., data = boston_train)
+Boston_quadratic_discriminant_analysis
+
+predict_boston_QDA_train <- predict(Boston_quadratic_discriminant_analysis, newdata = boston_train)
+predict_boston_QDA_test <- predict(Boston_quadratic_discriminant_analysis, newdata = boston_test)
+
+error_boston_QDA_train <- (1/length(predict_boston_QDA_train$class))*length(which(boston_train$crim !=  predict_boston_QDA_train$class))
+error_boston_QDA_train
+
+error_boston_QDA_test <- (1/length(predict_boston_QDA_test$class))*length(which(boston_test$crim != predict_boston_QDA_test$class))
+error_boston_QDA_test
+
+```
+
+```{r}
+
+## kNN
+
+library(class)
+
+k <- seq(1,30,2)
+filer <- paste("k", k, ".png", sep="") 
+errors_k <- rep(NA,15)
+
+for (i in 1:15)
+{
+data_boston_k <- knn(boston_train[,-1], boston_test[,-1], boston_train[,1], k[i])
+rows <- which(data_boston_k != boston_test[,1])
+errors_k[i] <- length(rows)
+}
+errors_k
+
+rows_boston_test <- length(boston_test[,1])
+rows_boston_test
+
+percentage <- (errors_k/rows_boston_test)*100
+percentage
+
+plot(k,percentage, xlab = "k", ylab = "Percentage")
+
+```
+
+```{r}
+
+## The Error of QDA is less for the given Boston testing dataset compared to LDA model. SO, QDA is preferred to LDA model.
+## The Linear Regression and LDA models have similar error value for boston testing dataset. According to the boston dataset, the prediction of crime rate must be low.
+## The minimum error of kNN model is 7.1% at k=1 
+
+```
+
+##################### 3.b #####################
+
+```{r}
+
+library(lattice)
+library(ISLR2)
+
+new_boston <- Boston
+boxplot(new_boston$crim)
+boxplot(Boston$crim, ylim = c(0,12))
+
+new_boston$crim <- ifelse(new_boston$crim < 4, 0,ifelse(new_boston$crim >= 9, 3, 2))
+
+set.seed(0000)
+
+boston_dataset_new <- sample(1:nrow(new_boston), 2/3 * nrow(new_boston))
+
+boston_new_train <- new_boston[boston_dataset_new,]
+boston_new_test <- new_boston[-boston_dataset_new,]
+
+```
+
+```{r}
+
+## Logistic Regression
+
+boston_logistic_regression <- glm(crim ~ .-zn -dis -ptratio -rm, data = boston_new_train)
+summary(boston_logistic_regression)
+
+predict_boston_new_train <- predict(boston_logistic_regression, newdata = boston_new_train,type = "response")
+predict_boston_new_test <- predict(boston_logistic_regression, newdata = boston_new_test,type ="response")
+
+error_LG_boston_new_train <- sum(abs(predict_boston_new_train - boston_new_train$crim)) /length(predict_boston_new_train)
+error_LG_boston_new_train 
+
+error_LG_boston_new_test <- sum(abs(predict_boston_new_test - boston_new_test$crim)) / length(predict_boston_new_test)
+error_LG_boston_new_test
+
+```
+
+
+```{r}
+
+## LDA
+
+library(klaR)
+
+Boston_new_linear_discriminant_analysis <- lda(crim ~ .-zn -dis -rm, data = boston_new_train)
+Boston_new_linear_discriminant_analysis
+
+predict_boston_new_LDA_train <- predict(Boston_new_linear_discriminant_analysis, newdata = boston_new_train)
+predict_boston_new_LDA_test <- predict(Boston_new_linear_discriminant_analysis, newdata = boston_new_test)
+
+error_boston_new_LDA_train <- (1 /length(boston_new_train$crim))*length(which(boston_new_train$crim != predict_boston_new_LDA_train$class ))
+error_boston_new_LDA_train
+
+error_boston_new_LDA_test <- (1 /length(boston_new_test$crim))*length(which(boston_new_test$crim != predict_boston_new_LDA_test$class ))
+error_boston_new_LDA_test
+
+```
+
+```{r}
+
+## QDA
+
+corrplot(cor(boston_new_train), method = "number", order = "hclust")
+
+## Boston_new_quadratic_discriminant_analysis_1 <- qda(crim~., data = boston_new_train)
+## Boston_new_quadratic_discriminant_analysis
+
+## The above piece of code gives an error of " deficiency in group 2" while grouping because number of observations < total variable combinations from the correlation matrix as no perfect correlation exists between any variables. Hence, QDA cannot be performed for this data set.
+
+```
+
+
+```{r}
+
+## kNN
+
+library(class)
+
+k_new <- seq(1,30,2)
+filer <- paste("k", k_new, ".png", sep="")
+errors_k_new <- rep(NA,15)
+
+for (i in 1:15){
+data_boston_k_new <- knn(boston_new_train[,-1], boston_new_test[,-1], boston_new_train[,1], k_new[i])
+rows <- which(data_boston_k_new != boston_new_test[,1])
+errors_k_new[i]=length(rows)
+}
+errors_k_new
+
+rows_boston_test_new <- length(boston_new_test[,1])
+rows_boston_test_new
+
+percentage_new <- (errors_k_new/rows_boston_test_new)*100
+percentage_new
+
+plot(k,percentage_new, xlab = "k values", ylab = "Percentage")
+
+## The lower error percentage is 7% at k=1 and it can be even smaller for given data tarining and testing datasets
+
+```
+
+```{r}
+
+## The error percentage of LDA model is 10.05% where as kNN is 7%
+
+```
+
+
+##################### 3.c #####################
+
+```{r}
+
+## error_boston_LG_test - 0.1773281
+
+## error_LG_boston_new_test - 0.2807709
+
+
+## error_boston_LDA_test - 0.1775148
+
+## error_boston_new_LDA_test - 0.1005917
+
+
+## error_boston_QDA_test - 0.1005917
+
+
+## kNN_error - 7.1%
+
+## kNN_error_new - 7.1%
+
+
+
+## From the above all errors obtained, Linear regression Error is less when predicting with 2 ranks.
+## LDA Error is less when predicting with 3 ranks
+## kNN is almost similar in both ranks
+## QDA is not applicatble for 3 ranks due to rank deficiency.
+## When predicting with 2 ranks, kNN & QDA models are best preferred compared to other models.
+## When predicting with 3 ranks, kNN & LDA models are preferred than other models.
+## However, the error values are almmost in the same value range varying between 7 and 29.
+## This output is within the expectation that does not vary much with different partitions because the dataset is small.
+
+```
+
+
+
+
+
+
+
+
+
+
